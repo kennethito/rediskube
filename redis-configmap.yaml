@@ -10,7 +10,7 @@ data:
   slave.conf: |
     # Apply this config only on slaves.
     # todo this should be parameterized with the actual hostname
-    slaveof redis-0.redis 6379
+    slaveof redis-0.redis.default.svc.cluster.local 6379
   shared.conf: |
     # Redis configuration file example.
     #
@@ -213,9 +213,9 @@ data:
     #
     #   save ""
 
-    save 900 1
-    save 300 10
-    save 60 10000
+    # save 900 1
+    # save 300 10
+    # save 60 10000
 
     # By default Redis will stop accepting writes if RDB snapshots are enabled
     # (at least one save point) and the latest background save failed.
@@ -230,7 +230,7 @@ data:
     # and persistence, you may want to disable this feature so that Redis will
     # continue to work as usual even if there are problems with disk,
     # permissions, and so forth.
-    stop-writes-on-bgsave-error yes
+    stop-writes-on-bgsave-error no
 
     # Compress string objects using LZF when dump .rdb databases?
     # For default that's set to 'yes' as it's almost always a win.
@@ -548,7 +548,7 @@ data:
     # limit for maxmemory so that there is some free RAM on the system for slave
     # output buffers (but this is not needed if the policy is 'noeviction').
     #
-    # maxmemory <bytes>
+    maxmemory 20gb
 
     # MAXMEMORY POLICY: how Redis will select what to remove when maxmemory
     # is reached. You can select among five behaviors:
@@ -571,7 +571,7 @@ data:
     #
     # The default is:
     #
-    # maxmemory-policy noeviction
+    maxmemory-policy allkeys-lru
 
     # LRU and minimal TTL algorithms are not precise algorithms but approximated
     # algorithms (in order to save memory), so you can tune it for speed or
@@ -604,7 +604,7 @@ data:
     #
     # Please check http://redis.io/topics/persistence for more information.
 
-    appendonly yes
+    appendonly no
 
     # The name of the append only file (default: "appendonly.aof")
 
@@ -634,8 +634,8 @@ data:
     # If unsure, use "everysec".
 
     # appendfsync always
-    appendfsync everysec
-    # appendfsync no
+    # appendfsync everysec
+    appendfsync no
 
     # When the AOF fsync policy is set to always or everysec, and a background
     # saving process (a background save or AOF log background rewriting) is
@@ -650,3 +650,40 @@ data:
     #
     # This means that while another child is saving, the durability of Redis is
     # the same as "appendfsync none". In p
+
+    # The client output buffer limits can be used to force disconnection of clients
+    # that are not reading data from the server fast enough for some reason (a
+    # common reason is that a Pub/Sub client can't consume messages as fast as the
+    # publisher can produce them).
+    #
+    # The limit can be set differently for the three different classes of clients:
+    #
+    # normal -> normal clients including MONITOR clients
+    # slave  -> slave clients
+    # pubsub -> clients subscribed to at least one pubsub channel or pattern
+    #
+    # The syntax of every client-output-buffer-limit directive is the following:
+    #
+    # client-output-buffer-limit <class> <hard limit> <soft limit> <soft seconds>
+    #
+    # A client is immediately disconnected once the hard limit is reached, or if
+    # the soft limit is reached and remains reached for the specified number of
+    # seconds (continuously).
+    # So for instance if the hard limit is 32 megabytes and the soft limit is
+    # 16 megabytes / 10 seconds, the client will get disconnected immediately
+    # if the size of the output buffers reach 32 megabytes, but will also get
+    # disconnected if the client reaches 16 megabytes and continuously overcomes
+    # the limit for 10 seconds.
+    #
+    # By default normal clients are not limited because they don't receive data
+    # without asking (in a push way), but just after a request, so only
+    # asynchronous clients may create a scenario where data is requested faster
+    # than it can read.
+    #
+    # Instead there is a default limit for pubsub and slave clients, since
+    # subscribers and slaves receive data in a push fashion.
+    #
+    # Both the hard or the soft limit can be disabled by setting them to zero.
+    client-output-buffer-limit normal 0 0 0
+    client-output-buffer-limit slave 0 0 0
+    client-output-buffer-limit pubsub 32mb 8mb 60
